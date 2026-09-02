@@ -1,0 +1,77 @@
+{
+  "name": "dsh-asr-coding",
+  "version": "0.1.0",
+  "description": "Speech-to-text voice input for the DeepSeek Harness (DSH) web GUI: click the mic button in the composer to turn speech into text in the input box. Supports the browser's built-in Web Speech API (zero-config, Chrome/Edge), OpenAI-compatible Whisper endpoints (OpenAI / Groq), Zhipu GLM-ASR-2512, and Alibaba Cloud Fun-ASR-Realtime. DSH 语音输入插件：点击输入框旁的麦克风按钮，把语音转成文字填入输入框；支持浏览器本地识别、OpenAI 兼容 Whisper API、智谱 GLM-ASR-2512 与阿里云百炼 Fun-ASR-Realtime。",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Link2Link/dsh-asr-coding.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Link2Link/dsh-asr-coding/issues"
+  },
+  "homepage": "https://github.com/Link2Link/dsh-asr-coding#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  },
+  "files": [
+    "lib",
+    "test",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.18"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "stt",
+    "speech-to-text",
+    "voice-input",
+    "whisper",
+    "groq",
+    "openai",
+    "zhipu",
+    "glm-asr-2512",
+    "aliyun",
+    "dashscope",
+    "fun-asr-realtime",
+    "web-speech-api",
+    "web-ui"
+  ]
+}
