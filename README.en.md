@@ -30,7 +30,11 @@ in **Settings → 语音输入 (Voice Input)**.
   to / replace the existing draft), and **hotwords / prompt** (proper nouns,
   names, terms — mapped per provider: a `hotwords` JSON array for Zhipu, a
   `prompt` field for OpenAI / Groq / custom endpoints, and recognition
-  context for fun-asr-realtime).
+  context for fun-asr-realtime). Writing tips: comma- or newline-separated
+  proper nouns in their correct spelling (names, products, terms) — Zhipu
+  takes up to 100 words, fun-asr truncates at 400 characters; OpenAI / Groq
+  work best with the terms embedded in a natural sentence matching the audio
+  language.
 - **Live status** — a pill under the composer shows recording time,
   transcribing state, and errors.
 - **Managed key** — API keys are stored exactly like LLM model keys: the host
@@ -83,9 +87,17 @@ The plugin registers:
      GLM-ASR-2512 is a one-shot transcription API, so the plugin sends an
      incremental segment roughly every 5 seconds and appends the result
      (segmented pseudo-streaming; the first text appears after ~5 seconds).
-2. Click the 🎤 mic button or press Ctrl+Backslash and speak: the browser engine and the Alibaba Cloud
-   engine show text as you talk; the Zhipu engine appends a recognized segment
-   roughly every 5 seconds. Click again to stop, finalize, and press Enter to send.
+2. Click the mic button or use the hotkey and speak: the browser engine and the
+   Alibaba Cloud engine show text as you talk; the Zhipu engine appends a
+   recognized segment roughly every 5 seconds. Stop, then press Enter to send.
+
+   **Trigger styles** (selectable in settings):
+
+   - **Click toggle** (default) — click to start, click again to stop; the
+     Ctrl+Backslash hotkey (Cmd+Backslash on macOS) toggles the same way.
+   - **Hold to talk** — press and hold the mic button or the Ctrl+Backslash
+     key to record, release to stop (walkie-talkie style; releasing outside
+     the button still stops correctly thanks to pointer capture).
 
 > The browser engine needs Chrome or Edge (Web Speech API). In Firefox, switch
 > to the API engine in Settings.
