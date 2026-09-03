@@ -98,30 +98,48 @@ pnpm pack
 ## 工作原理
 
 ```
-┌──────────┐  点击🎤        ┌───────────────┐
-│  客户端  │ ─────────────▶ │ MediaRecorder │  (api 引擎)
-│ (浏览器) │                │ SpeechRecog.  │  (browser 引擎)
-└──────────┘                └──────┬────────┘
-      ▲                           ▼
-      │ setDraft(text)      base64 音频 (JSON)
-      │              POST /stt-input/transcribe
-      │                           │
-┌─────┴──────┐           ┌───────▼────────┐
-│  输入框    │ ◀──────────│  Host (Node)   │
-└────────────┘  {ok,text} │ HTTP → audio/ │
-                          │ transcriptions│
-                          │ 或 WebSocket  │
-                          └────────────────┘
+              触发：单击 🎤 ／ 快捷键 Ctrl+\ ／ 长按说话（设置可选）
+
+┌──────────────────────────────────────────────────────────────┐
+│                     浏览器 · lib/client.js                    │
+│                                                              │
+│   browser 引擎       实时流引擎（阿里云）       批量引擎        │
+│   SpeechRecognition  AudioWorklet 采集         MediaRecorder │
+│   浏览器本地识别      16 kHz 单声道 PCM16        整段录音      │
+└───────┬───────────────────┬──────────────────────┬──────────┘
+        │ 本地出字           │ WebSocket            │ base64 JSON
+        │                   │ /stt-input/stream    │ POST /stt-input/transcribe
+        │                   ▼                      ▼
+        │          ┌────────────────────────────────────┐
+        │          │       Host（Node）· lib/index.js   │
+        │          │  🔑 凭据服务按预设解析 API Key       │
+        │          │  心跳保活 · 断线自动重连 · 端点锁定  │
+        │          │  音频校验 · 热词按服务商映射         │
+        │          └─────────┬──────────────┬─────────┘
+        │                    │ WebSocket    │ HTTPS multipart
+        │                    ▼              ▼
+        │          DashScope 实时 ASR    OpenAI ／ Groq ／ 智谱
+        │          fun-asr ／ qwen3 系列  /audio/transcriptions
+        │                    │
+        └──────┬─────────────┘
+               ▼      sentence ／ done 事件实时回流（边说边出）
+      ┌─────────────────┐
+      │   输入框         │ setDraft() 随识别进度持续更新
+      └─────────────────┘
 ```
 
-客户端（`lib/client.js`）录音后把 base64 JSON POST 到宿主路由
-`/stt-input/transcribe`；宿主（`lib/index.js`）解码音频并以
-`multipart/form-data` 上传到服务商对应端点：OpenAI 兼容服务使用
-`${baseUrl}/v1/audio/transcriptions`，智谱使用
-`${baseUrl}/audio/transcriptions`（完整地址为
-`https://open.bigmodel.cn/api/paas/v4/audio/transcriptions`）；阿里云百炼使用固定的
-WebSocket 地址，并通过 `run-task`、二进制 PCM 音频和 `finish-task` 完成识别。
-宿主使用 Node ≥ 18 的全局 `fetch` / `FormData` / `Blob` 和 `ws`。
+两条宿主路由各司其职：
+
+- **`/stt-input/stream`（WebSocket 实时通道）** — 浏览器边采集边发送
+  PCM 帧；宿主转发到 DashScope 实时 ASR 并把中间识别结果逐句推回，
+  输入框边说边出；停止后图标立即恢复，最终完整文本后台定稿。
+- **`/stt-input/transcribe`（HTTP 批量）** — 整段录音 base64 上传；宿主
+  校验音频、按服务商映射热词（智谱 `hotwords` 数组、OpenAI 系 `prompt`
+  字段）并以 `multipart/form-data` 提交，智谱由插件每约 5 秒分段调用。
+
+两条路由的 API Key 均由宿主在请求时经 DSH 凭据服务解析（每个预设独立
+凭据位，见「密钥托管」），页面从不持有密钥值。宿主使用 Node ≥ 18 的
+全局 `fetch` / `FormData` / `Blob` 和 `ws`。
 
 ## License
 

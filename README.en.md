@@ -105,30 +105,53 @@ The plugin registers:
 ## How it works
 
 ```
-┌──────────┐  click 🎤        ┌───────────────┐
-│  Client  │ ───────────────▶ │ MediaRecorder │  (api engine)
-│ (browser)│                  │ SpeechRecog.  │  (browser engine)
-└──────────┘                  └──────┬────────┘
-      ▲                              ▼
-      │ setDraft(text)         base64 audio (JSON)
-      │                 POST /stt-input/transcribe
-      │                              │
-┌─────┴──────┐              ┌───────▼────────┐
-│ input box  │ ◀────────────│  Host (Node)   │
-└────────────┘   {ok,text}  │ HTTP → audio/  │
-                            │ transcriptions  │
-                            │ or WebSocket    │
-                            └─────────────────┘
+        Trigger: click the mic | Ctrl+Backslash hotkey | hold-to-talk (settings)
+
++--------------------------------------------------------------+
+|                   Browser  (lib/client.js)                   |
+|                                                              |
+|   browser engine     realtime engine (Alibaba)    batch      |
+|   SpeechRecognition  AudioWorklet capture        engine     |
+|   local, built-in    16 kHz mono PCM16            MediaRec.  |
++-------+-------------------+----------------------+----------+
+        | local text        | WebSocket            | base64 JSON
+        |                   | /stt-input/stream    | POST /stt-input/transcribe
+        |                   v                      v
+        |          +------------------------------------+
+        |          |      Host (Node)  (lib/index.js)   |
+        |          |  API key per preset via            |
+        |          |  the DSH credential service        |
+        |          |  heartbeat - auto-reconnect -      |
+        |          |  pinned endpoints - validation     |
+        |          +---------+--------------+---------+
+        |                    | WebSocket    | HTTPS multipart
+        |                    v              v
+        |          DashScope realtime   OpenAI / Groq / Zhipu
+        |          fun-asr / qwen3      /audio/transcriptions
+        |                    |
+        +------+-------------+
+               v      sentence / done events stream back live
+      +-----------------+
+      |    input box    | setDraft() updates as you speak
+      +-----------------+
 ```
 
-The client (`lib/client.js`) captures audio and posts base64 JSON to the host
-route `/stt-input/transcribe`. The host (`lib/index.js`) decodes the audio and
-uploads it as `multipart/form-data` to the provider endpoint. OpenAI-compatible
-services use `${baseUrl}/v1/audio/transcriptions`; Zhipu uses
-`${baseUrl}/audio/transcriptions`, resolving to
-`https://open.bigmodel.cn/api/paas/v4/audio/transcriptions`. Alibaba Cloud uses
-the fixed WebSocket endpoint and the `run-task` / binary PCM / `finish-task`
-protocol. The host uses Node ≥ 18 global `fetch` / `FormData` / `Blob` plus `ws`.
+The two host routes each own one path:
+
+- **`/stt-input/stream` (WebSocket, realtime)** - the browser streams PCM
+  frames while capturing; the host relays them to DashScope realtime ASR
+  and pushes interim sentences back, so the draft updates as you speak.
+  Stopping frees the mic instantly while the final transcript settles in
+  the background.
+- **`/stt-input/transcribe` (HTTP, batch)** - the whole clip is uploaded as
+  base64; the host validates the audio, maps hotwords per provider (a
+  `hotwords` array for Zhipu, a `prompt` field for OpenAI-style APIs) and
+  submits `multipart/form-data`. Zhipu is called in ~5-second segments.
+
+Both routes resolve their API key through the DSH credential service at
+request time (one dedicated slot per preset - see "Managed key"); the page
+never holds the value. The host uses Node >= 18 global `fetch` /
+`FormData` / `Blob` plus `ws`.
 
 ## License
 
