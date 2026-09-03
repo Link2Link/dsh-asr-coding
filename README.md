@@ -17,13 +17,24 @@ DeepSeek Harness (DSH) Web GUI 的语音输入插件。
     `/api/paas/v4/audio/transcriptions` 接口，以及阿里云百炼 Fun-ASR-Realtime WebSocket API。
 - **模型可选** — `whisper-1`（OpenAI）、`whisper-large-v3`、
   `whisper-large-v3-turbo`、`distil-whisper-large-v3-en`（Groq）、
-  `glm-asr-2512`（智谱）、`fun-asr-realtime-2026-02-28`（阿里云百炼），
+  `glm-asr-2512`（智谱）、`fun-asr-realtime`（阿里云百炼，默认）/
+  `fun-asr-realtime-2026-02-28`（预览版）、`qwen3-asr-flash-realtime`
+  （阿里云 Qwen3 ASR，多语种+情感识别，走 `/api-ws/v1/realtime` 协议），
   或自定义模型名。
-- **可配置** — 服务预设（OpenAI / Groq / 智谱 / 阿里云百炼 / 自定义）、API Base URL、API Key、
-  识别语言、写入方式（追加到输入框 / 替换输入框内容）。
+- **可配置** — 服务预设（OpenAI / Groq / 智谱 / 阿里云百炼 / 自定义）、
+  API Base URL、API Key（每个预设独立凭据位，互不覆盖，未设置时回退共享密钥）、
+  触发方式（单击切换 / 长按说话松开结束，快捷键同步适配）、
+  识别语言、写入方式（追加到输入框 / 替换输入框内容）、以及
+  **热词 / 提示词**（专有名词、人名、术语，按服务商自动适配：智谱作为
+  `hotwords` 数组，OpenAI / Groq / 自定义作为 `prompt` 字段，
+  fun-asr-realtime 作为 `input.context` 识别上下文）。
 - **实时状态条** — 输入框下方显示录音计时、识别中状态与错误信息。
-- **隐私** — API Key 仅保存在页面内存中，不落盘、不打日志；非密钥配置通过
-  `localStorage` 在刷新后保留。
+- **密钥托管** — API Key 与 LLM 模型密钥同一方式保存：宿主通过 DSH 凭据服务
+  存取（落盘于 `~/.dsh/.credentials.yaml`），页面不再持有密钥值，刷新与重启后
+  依然生效。**每个服务预设一个独立凭据位**（`DSH_ASR_OPENAI_KEY`、
+  `DSH_ASR_GROQ_KEY`、`DSH_ASR_ZHIPU_KEY`、`DSH_ASR_ALIYUN_KEY`、
+  `DSH_ASR_CUSTOM_KEY`），切换预设互不覆盖；
+  未设置时回退共享的 `DSH_ASR_API_KEY`（也可用环境变量注入）。
 
 ## 安装
 
@@ -53,11 +64,18 @@ pnpm pack
        插件通过内部 JSON 路由传输音频，目前采用更严格的 6 MB 音频上限，
        并会在超过 30 秒时提示缩短录音。
      - 阿里云百炼预设使用北京地域兼容地址
-       `wss://dashscope.aliyuncs.com/api-ws/v1/inference` 和模型
-       `fun-asr-realtime-2026-02-28`。插件将录音转换为 16 kHz 单声道 PCM，
-       由宿主通过 WebSocket 执行 `run-task` → 二进制音频 → `finish-task`。
-       语言提示支持中文、英文和日语。
-2. 点击输入框旁的 🎤 开始录音，说话，再点一次停止。识别文字进入输入框，回车发送。
+       阿里云可在三个实时模型间选择：`fun-asr-realtime`（默认，多语种）、
+       `fun-asr-realtime-2026-02-28`（预览版，中/英/日）、`qwen3-asr-flash-realtime`
+       （多语种+粤语+情感识别，使用 `wss://dashscope.aliyuncs.com/api-ws/v1/realtime`
+       的 `session.update` → `input_audio_buffer.append` → `session.finish`
+       协议）。Fun-ASR 系列走 `/api-ws/v1/inference` 的 `run-task` → 二进制
+       音频 → `finish-task` 协议；录音均转换为 16 kHz 单声道 PCM。
+     - **实时出字**：选择阿里云或智谱时，说话过程中输入框会同步更新——
+       阿里云通过 `/stt-input/stream` 实时通道推送中间识别结果（真正的边说边出）；
+       智谱因其 GLM-ASR-2512 为一次性整段转写接口，插件每约 5 秒发送一段
+       增量录音并追加识别结果（分段伪实时，首段文字约 5 秒后出现）。
+2. 点击输入框旁的 🎤 或按 Ctrl+ 反斜杠 开始录音：浏览器本地引擎与阿里云引擎边说边出字，
+   智谱引擎约每 5 秒追加一段识别结果；再点一次停止并完成收尾，回车发送。
 
 > 浏览器本地引擎依赖 Chrome/Edge 的 Web Speech API；Firefox 请使用 API 引擎。
 

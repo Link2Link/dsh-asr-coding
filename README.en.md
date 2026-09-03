@@ -20,15 +20,27 @@ in **Settings → 语音输入 (Voice Input)**.
     Cloud Model Studio's Fun-ASR-Realtime WebSocket API.
 - **Selectable model** — `whisper-1` (OpenAI), `whisper-large-v3`,
   `whisper-large-v3-turbo`, `distil-whisper-large-v3-en` (Groq),
-  `glm-asr-2512` (Zhipu), `fun-asr-realtime-2026-02-28` (Alibaba Cloud),
-  or a custom model name.
-- **Configurable** — service preset (OpenAI / Groq / Zhipu / Alibaba Cloud / custom), API base URL,
-  API key, recognition language, and insert mode (append to / replace the
-  existing draft).
+  `glm-asr-2512` (Zhipu), `fun-asr-realtime` (Alibaba Cloud, default) /
+  `fun-asr-realtime-2026-02-28` (preview), `qwen3-asr-flash-realtime`
+  (Alibaba Qwen3 ASR, multilingual with emotion, using the `/api-ws/v1/realtime`
+  protocol), or a custom model name.
+- **Configurable** — service preset (OpenAI / Groq / Zhipu / Alibaba Cloud /
+  custom), API base URL, API key, trigger style (click-toggle or
+  hold-to-talk with the hotkey following along), recognition language, insert mode (append
+  to / replace the existing draft), and **hotwords / prompt** (proper nouns,
+  names, terms — mapped per provider: a `hotwords` JSON array for Zhipu, a
+  `prompt` field for OpenAI / Groq / custom endpoints, and recognition
+  context for fun-asr-realtime).
 - **Live status** — a pill under the composer shows recording time,
   transcribing state, and errors.
-- **Privacy** — the API key is kept in page memory only and is never persisted
-  or logged; the non-secret config survives reloads via `localStorage`.
+- **Managed key** — API keys are stored exactly like LLM model keys: the host
+  resolves them through the DSH credential service (persisted in
+  `~/.dsh/.credentials.yaml`), the page never holds the value, and they survive
+  reloads and restarts. **Each provider preset owns a dedicated credential
+  slot** (`DSH_ASR_OPENAI_KEY`, `DSH_ASR_GROQ_KEY`, `DSH_ASR_ZHIPU_KEY`,
+  `DSH_ASR_ALIYUN_KEY`, `DSH_ASR_CUSTOM_KEY`) so
+  presets never overwrite each other, falling back to the shared
+  `DSH_ASR_API_KEY` (an environment variable also works).
 
 ## Install
 
@@ -58,13 +70,22 @@ The plugin registers:
      Zhipu accepts WAV/MP3 files up to 25 MB and clips up to 30 seconds. Because
      this plugin transports audio through an internal JSON route, it currently
      applies a stricter 6 MB audio limit and rejects clips over 30 seconds.
-     The Alibaba Cloud preset uses the Beijing-compatible endpoint
-     `wss://dashscope.aliyuncs.com/api-ws/v1/inference` with
-     `fun-asr-realtime-2026-02-28`. The host streams 16 kHz mono PCM using the
-     `run-task` → binary audio → `finish-task` protocol. Language hints support
-     Chinese, English, and Japanese.
-2. Click the 🎤 mic button in the composer to start, speak, and click again to
-   stop. The transcript lands in the input box; press Enter to send.
+     The Alibaba Cloud preset offers three realtime models: `fun-asr-realtime`
+     (default, multilingual), `fun-asr-realtime-2026-02-28` (preview, zh/en/ja),
+     and `qwen3-asr-flash-realtime` (multilingual incl. Cantonese, with emotion,
+     using the `session.update` → `input_audio_buffer.append` → `session.finish`
+     protocol on `wss://dashscope.aliyuncs.com/api-ws/v1/realtime`). Fun-ASR
+     models use the `/api-ws/v1/inference` `run-task` → binary audio →
+     `finish-task` protocol; recordings are converted to 16 kHz mono PCM either way.
+   - **Live text while speaking**: with Alibaba Cloud or Zhipu selected, the
+     input box updates as you speak. Alibaba Cloud pushes interim results over
+     the `/stt-input/stream` real-time channel (true streaming); Zhipu's
+     GLM-ASR-2512 is a one-shot transcription API, so the plugin sends an
+     incremental segment roughly every 5 seconds and appends the result
+     (segmented pseudo-streaming; the first text appears after ~5 seconds).
+2. Click the 🎤 mic button or press Ctrl+Backslash and speak: the browser engine and the Alibaba Cloud
+   engine show text as you talk; the Zhipu engine appends a recognized segment
+   roughly every 5 seconds. Click again to stop, finalize, and press Enter to send.
 
 > The browser engine needs Chrome or Edge (Web Speech API). In Firefox, switch
 > to the API engine in Settings.
