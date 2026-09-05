@@ -9,6 +9,7 @@
     "test": "node --test"
   },
   "dependencies": {
+    "schemastery": "^3.18.0",
     "ws": "^8.18.3"
   },
   "repository": {

@@ -35,6 +35,15 @@ in **Settings → 语音输入 (Voice Input)**.
   takes up to 100 words, fun-asr truncates at 400 characters; OpenAI / Groq
   work best with the terms embedded in a natural sentence matching the audio
   language.
+- **Host-stored settings, shared across browsers** — every non-secret
+  setting (engine, service preset, model, hotwords, language, trigger style,
+  insert mode) lives in the DSH host's settings document
+  (`~/.dsh/settings.yaml`, `dsh-asr-coding` namespace, read/written through
+  the DSH settings service): a new browser — or another machine — talking to
+  the same DSH starts already configured, and a change made in one open page
+  syncs to the others. Legacy per-browser localStorage configs migrate to the
+  host on first load and the local copy is then removed. API keys keep riding
+  the credential service; the page never holds a key value.
 - **Live status** — a pill under the composer shows recording time,
   transcribing state, and errors.
 - **Managed key** — API keys are stored exactly like LLM model keys: the host
